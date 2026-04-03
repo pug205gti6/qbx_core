@@ -79,6 +79,7 @@ local function onPlayerConnecting(name, _, deferrals)
     local src = source --[[@as string]]
     local license = GetPlayerIdentifierByType(src, 'license2') or GetPlayerIdentifierByType(src, 'license')
     deferrals.defer()
+    local userId = storage.fetchUserByIdentifier(license)
 
     -- Mandatory wait
     Wait(0)
@@ -86,16 +87,21 @@ local function onPlayerConnecting(name, _, deferrals)
     if serverConfig.closed then
         if not IsPlayerAceAllowed(src, 'qbadmin.join') then
             deferrals.done(serverConfig.closedReason)
-            return
         end
     end
 
     if not license then
         deferrals.done(locale('error.no_valid_license'))
-        return
     elseif serverConfig.checkDuplicateLicense and usedLicenses[license] then
         deferrals.done(locale('error.duplicate_license'))
-        return
+    end
+
+    if not userId then
+        local identifiers = getIdentifiers(src)
+
+        identifiers.username = name
+
+        storage.createUser(identifiers)
     end
 
     local databaseTime = os.clock()
@@ -103,16 +109,6 @@ local function onPlayerConnecting(name, _, deferrals)
 
     -- conduct database-dependant checks
     CreateThread(function()
-        deferrals.update(locale('info.fetching_user', name))
-        local userId = storage.fetchUserByIdentifier(license)
-        if not userId then
-            local identifiers = getIdentifiers(src)
-            identifiers.username = name
-
-            deferrals.update(locale('info.creating_user', name))
-            storage.createUser(identifiers)
-        end
-
         deferrals.update(locale('info.checking_ban', name))
         local success, err = pcall(function()
             local isBanned, Reason = IsPlayerBanned(src --[[@as Source]])
@@ -265,4 +261,39 @@ end)
 ---@diagnostic disable-next-line: param-type-mismatch
 AddStateBagChangeHandler('stress', nil, function(bagName, _, value)
     playerStateBagCheck(bagName, 'stress', value)
+end)
+
+-- Stress Management
+
+local stressConfig = require 'config.server'.player.stress
+
+---@param amount number
+RegisterNetEvent('qbx_core:server:GainStress', function(amount)
+    if not stressConfig.enable then return end
+
+    local src = source
+    local player = exports.qbx_core:GetPlayer(src)
+    if not player then return end
+    if stressConfig.disableForLEO and player.PlayerData.job.type == 'leo' then return end
+
+    local currentStress = player.PlayerData.metadata.stress or 0
+    local newStress = math.min(100, math.max(0, currentStress + amount))
+
+    player.Functions.SetMetaData('stress', newStress)
+    TriggerClientEvent('hud:client:UpdateStress', src, newStress)
+end)
+
+---@param amount number
+RegisterNetEvent('qbx_core:server:RelieveStress', function(amount)
+    if not stressConfig.enable then return end
+
+    local src = source
+    local player = exports.qbx_core:GetPlayer(src)
+    if not player then return end
+
+    local currentStress = player.PlayerData.metadata.stress or 0
+    local newStress = math.min(100, math.max(0, currentStress - amount))
+
+    player.Functions.SetMetaData('stress', newStress)
+    TriggerClientEvent('hud:client:UpdateStress', src, newStress)
 end)

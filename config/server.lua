@@ -14,6 +14,10 @@ return {
     player = {
         hungerRate = 4.2, -- Rate at which hunger goes down.
         thirstRate = 3.8, -- Rate at which thirst goes down.
+        stress = {
+            enable = true, -- If false, stress system is disabled for everyone
+            disableForLEO = true, -- If true, stress is disabled for law enforcement job types
+        },
 
         ---@enum BloodType
         bloodTypes = {
@@ -88,7 +92,6 @@ return {
         discord = '', -- Discord invite link
         checkDuplicateLicense = true, -- Check for duplicate rockstar license on join
         ---@deprecated use cfg ACE system instead
-        requireOptIn = true, -- Set to false to disable the requirement to use the /optin command before accessing admin commands
         permissions = { 'god', 'admin', 'mod' }, -- Add as many groups as you want here after creating them in your server.cfg
     },
 
@@ -112,16 +115,8 @@ return {
         role = {} -- Role to tag for high priority logs. Roles use <@%roleid> and users/channels are <@userid/channelid>
     },
 
-    persistence = {
-        lockState = 'lock', -- 'lock' : vehicle will be locked when spawned, 'unlock' : vehicle will be unlocked when spawned
-    },
-
     giveVehicleKeys = function(src, plate, vehicle)
         return exports.qbx_vehiclekeys:GiveKeys(src, vehicle)
-    end,
-
-    setVehicleLock = function(vehicle, state)
-        exports.qbx_vehiclekeys:SetLockState(vehicle, state)
     end,
 
     getSocietyAccount = function(accountName)
